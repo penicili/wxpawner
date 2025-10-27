@@ -1,8 +1,12 @@
 import express from 'express';
 import router from './routes/api.js';
+import { connect } from './utils/database.js';
 
 async function init() {
     try {
+        const dbStatus = await connect();
+        console.log("Database status:", dbStatus);
+
         const app = express();
 
         const PORT = process.env.PORT || 3000;

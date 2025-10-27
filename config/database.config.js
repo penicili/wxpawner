@@ -1,1 +1,0 @@
-// database nanti pake mongo + mongoose
