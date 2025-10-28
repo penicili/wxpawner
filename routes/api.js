@@ -1,10 +1,10 @@
 import express from 'express';
-import { spawnContainer, stopContainer } from '../controllers/spawn.controller.js';
-
+import challangeController from '../controllers/challange.controller.js';
 const router = express.Router();
 
-router.post('/spawn', spawnContainer);
-router.post('/stop', stopContainer);
 
+router.post('/challanges', challangeController.createChallange);
 
 export default router;
+
+

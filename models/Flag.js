@@ -25,3 +25,5 @@ Flag.init({
     sequelize,
     modelName: 'Flag'
 })
+
+export default Flag;
