@@ -1,0 +1,3 @@
+[submodule "challanges/SSTI/SSTI-Generator"]
+	path = challanges/SSTI/SSTI-Generator
+	url = https://github.com/penicili/SSTI-Generator.git
