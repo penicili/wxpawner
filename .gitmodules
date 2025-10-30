@@ -1,0 +1,6 @@
+[submodule "challanges/--force"]
+	path = challanges/--force
+	url = https://github.com/penicili/SSTI
+[submodule "challanges/SSTI"]
+	path = challanges/SSTI
+	url = https://github.com/penicili/SSTI.git

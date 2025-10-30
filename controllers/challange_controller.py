@@ -20,7 +20,7 @@ def create_challenge(challenge: ChallengeCreate):
         # Create container from challenge directory
         container = SpawnerService.create_container(
             team_name=challenge.team_name,
-            challenge_path="SSTI/SSTI-Generator",
+            image =challenge.image_name,
             flag=flag["flag"]
         )
         

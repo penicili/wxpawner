@@ -37,25 +37,28 @@ class SpawnerService:
 
     @staticmethod
     def _build_challenge_image(challenge_path: str) -> str:
-        """Build Docker image from challenge directory
-
-        Args:
-            challenge_path: Path relative to challenges directory (e.g. 'SSTI/SSTI-Generator')
-
-        Returns:
-            str: Name of built image
-        """
+        """Build Docker image from challenge directory"""
         full_path = SpawnerService.challenges_dir / challenge_path
 
         if not full_path.exists():
             raise SpawnerError(f"Challenge path does not exist: {full_path}")
 
+        # Check entrypoint.sh exists and is readable
+        entrypoint_path = full_path / "entrypoint.sh"
+        if not entrypoint_path.exists():
+            raise SpawnerError(f"entrypoint.sh not found in {full_path}")
+
+        print(f"Building image from path: {full_path}")
+        print(f"Files in challenge directory:")
+        for f in full_path.iterdir():
+            print(f"  - {f.name}")
+
         if not (full_path / "Dockerfile").exists():
             raise SpawnerError(f"Dockerfile not found in {full_path}")
 
-        # Create image name from challenge path (e.g. wxpawner-ssti-generator)
+        # Create image name from challenge path
         image_name = f"wxpawner-{challenge_path.lower().replace('/', '-')}"
-        
+
         try:
             SpawnerService._ensure_initialized()
             SpawnerService.client.images.build(
@@ -68,21 +71,21 @@ class SpawnerService:
             raise SpawnerError(f"Failed to build image: {str(e)}")
 
     @staticmethod
-    def create_container(team_name: str, challenge_path: str, flag: str) -> Container:
+    def create_container(team_name: str, image: str, flag: str) -> Container:
         """Create container from challenge directory
 
         Args:
             team_name: Name of the team
-            challenge_path: Path to challenge (e.g. 'SSTI/SSTI-Generator')
+            image: Name of the Docker image
             flag: Flag to inject into container
         """
         try:
             # Build image from challenge directory
-            image_name = SpawnerService._build_challenge_image(challenge_path)
-            
+            image_name = SpawnerService._build_challenge_image(challenge_path=image)
+
             # Generate unique container name
             container_name = f"challenge-{team_name}-{uuid.uuid4().hex[:8]}"
-            
+
             SpawnerService._ensure_initialized()
             docker_container = SpawnerService.client.containers.run(
                 image=image_name,
@@ -93,7 +96,7 @@ class SpawnerService:
                     "TEAM": team_name
                 }
             )
-            
+
             # Save to database
             db = SessionLocal()
             try:
@@ -110,7 +113,7 @@ class SpawnerService:
                 return container
             finally:
                 db.close()
-                
+
         except Exception as e:
             # Cleanup on error
             try:
