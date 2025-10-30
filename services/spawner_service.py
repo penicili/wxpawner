@@ -50,8 +50,7 @@ class SpawnerService:
 
         print(f"Building image from path: {full_path}")
         print(f"Files in challenge directory:")
-        for f in full_path.iterdir():
-            print(f"  - {f.name}")
+
 
         if not (full_path / "Dockerfile").exists():
             raise SpawnerError(f"Dockerfile not found in {full_path}")

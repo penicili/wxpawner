@@ -9,9 +9,10 @@ class FlagService:
         print (f"Creating flag with prefix: {settings.FLAG_PREFIX}, flagStr: {flagStr}, flagLength: {settings.FLAG_LENGTH}")
         if not flagStr:
             # Buat flag random jika tidak diberikan
-            flag = random.choices(string.ascii_letters + string.digits, k=settings.FLAG_LENGTH)
-            return {"flag": f"{settings.FLAG_PREFIX}{{{''.join(flag)}}}",
+            flagString = random.choices(string.ascii_letters + string.digits, k=settings.FLAG_LENGTH)
+            flagString = f"{settings.FLAG_PREFIX}{{{''.join(flagString)}}}"
+            return {"flag": flagString,
                     "assigned team": assigned_team}
-
-        return {"flag": f"{settings.FLAG_PREFIX}{{{flagStr}}}",
-                "assigned team": assigned_team}
+        else:
+            flagString = f"{settings.FLAG_PREFIX}{{{flagStr}}}"
+            return {"flag": flagString,"assigned team": assigned_team}
