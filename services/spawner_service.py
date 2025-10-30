@@ -7,7 +7,6 @@ from docker.errors import ImageNotFound, APIError
 from datetime import datetime
 
 from models.Container import Container, ContainerStatus
-from services.flag_service import FlagService
 from utils.database import SessionLocal
 
 

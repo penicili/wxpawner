@@ -5,7 +5,7 @@ from alembic import context
 from config.config import settings
 from utils.database import DATABASE_URL
 from utils.database import Base
-from models import Flag  # Make sure all models are imported for autogenerate
+from models import Flag, Container  # Make sure all models are imported for autogenerate
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

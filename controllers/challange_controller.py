@@ -2,23 +2,25 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from services.spawner_service import SpawnerService
 from services.flag_service import FlagService
+from typing import Optional
 
 router = APIRouter()
 
 class ChallengeCreate(BaseModel):
     team_name: str
     image_name: str
+    flag_str: Optional[str] = None
 
 @router.post("/create")
 def create_challenge(challenge: ChallengeCreate):
     try:
         # Create flag for the team
-        flag = FlagService.create_flag(assigned_team=challenge.team_name)
+        flag = FlagService.create_flag(assigned_team=challenge.team_name, flagStr=challenge.flag_str)
         
         # Create container from challenge directory
         container = SpawnerService.create_container(
             team_name=challenge.team_name,
-            challenge_path="SSTI/SSTI-Generator",  # Path relative to challenges dir
+            challenge_path="SSTI/SSTI-Generator",
             flag=flag["flag"]
         )
         
