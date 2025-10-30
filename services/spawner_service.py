@@ -70,31 +70,49 @@ class SpawnerService:
             raise SpawnerError(f"Failed to build image: {str(e)}")
 
     @staticmethod
+    def selectPort() -> int:
+        """Select an available port between 8000-9000"""
+        used_ports = set()
+        SpawnerService._ensure_initialized()
+        containers = SpawnerService.client.containers.list()
+        for container in containers:
+            ports = container.attrs['NetworkSettings']['Ports']
+            if ports:
+                for port_mappings in ports.values():
+                    if port_mappings:
+                        for mapping in port_mappings:
+                            used_ports.add(int(mapping['HostPort']))
+
+        for port in range(8000, 9000):
+            if port not in used_ports:
+                return port
+
+        raise SpawnerError("No available ports found")
+
+    @staticmethod
     def create_container(team_name: str, image: str, flag: str) -> Container:
-        """Create container from challenge directory
-
-        Args:
-            team_name: Name of the team
-            image: Name of the Docker image
-            flag: Flag to inject into container
-        """
         try:
-            # Build image from challenge directory
             image_name = SpawnerService._build_challenge_image(challenge_path=image)
-
-            # Generate unique container name
             container_name = f"challenge-{team_name}-{uuid.uuid4().hex[:8]}"
+            
+            # Get two available ports - one for container, one for host
+            container_port = 5000
 
             SpawnerService._ensure_initialized()
+
             docker_container = SpawnerService.client.containers.run(
                 image=image_name,
                 name=container_name,
                 detach=True,
                 environment={
                     "FLAG": flag,
-                    "TEAM": team_name
-                }
+                    "TEAM": team_name,
+                },
+                ports={f"{container_port}/tcp": None},
             )
+            
+            docker_container.reload()
+            host_port = next(iter(docker_container.attrs['NetworkSettings']['Ports'].values()))[0]['HostPort']
 
             # Save to database
             db = SessionLocal()
@@ -104,7 +122,8 @@ class SpawnerService:
                     image_name=image_name,
                     status=ContainerStatus.RUNNING,
                     team_name=team_name,
-                    flag=flag
+                    flag=flag,
+                    port=f"{host_port}"
                 )
                 db.add(container)
                 db.commit()

@@ -22,8 +22,8 @@ class Container(Base):
         default=ContainerStatus.CREATING
     )
     team_name = Column(String(100), nullable=False)
-    port = Column(Integer, nullable=True)  # External port if exposed
-    flag = Column(String(255), nullable=True)  # Challenge flag if applicable
+    port = Column(String(20), nullable=True)  
+    flag = Column(String(255), nullable=True)  
     created_at = Column(
         DateTime(timezone=True),
         nullable=False,
