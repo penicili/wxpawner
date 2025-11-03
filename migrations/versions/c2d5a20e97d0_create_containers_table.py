@@ -1,8 +1,8 @@
 """create containers table
 
-Revision ID: ed8adc051c69
-Revises: 1d3e69615ad2
-Create Date: 2025-10-30 08:41:31.238245
+Revision ID: c2d5a20e97d0
+Revises: 
+Create Date: 2025-10-30 14:20:09.768677
 
 """
 from typing import Sequence, Union
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'ed8adc051c69'
-down_revision: Union[str, Sequence[str], None] = '1d3e69615ad2'
+revision: str = 'c2d5a20e97d0'
+down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -27,7 +27,7 @@ def upgrade() -> None:
     sa.Column('image_name', sa.String(length=255), nullable=False),
     sa.Column('status', sa.Enum('CREATING', 'RUNNING', 'STOPPED', 'FAILED', 'REMOVED', name='containerstatus'), nullable=False),
     sa.Column('team_name', sa.String(length=100), nullable=False),
-    sa.Column('port', sa.Integer(), nullable=True),
+    sa.Column('port', sa.String(length=20), nullable=True),
     sa.Column('flag', sa.String(length=255), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id')

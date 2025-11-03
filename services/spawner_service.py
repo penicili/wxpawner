@@ -1,13 +1,15 @@
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, cast
 import uuid
+from docker import DockerClient
 import os
 from pathlib import Path
 import docker
-from docker.errors import ImageNotFound, APIError
+from docker.errors import ImageNotFound, APIError, NotFound
 from datetime import datetime
 
 from models.Container import Container, ContainerStatus
 from utils.database import SessionLocal
+from sqlalchemy import update
 
 
 class SpawnerError(Exception):
@@ -16,13 +18,14 @@ class SpawnerError(Exception):
 
 
 class SpawnerService:
-    client = None
+    client: Optional[docker.DockerClient] = None
     challenges_dir = Path("challanges")  # Base directory for challenges
 
     @staticmethod
     def _ensure_initialized():
         if SpawnerService.client is None:
             SpawnerService.init()
+        return cast(DockerClient, SpawnerService.client)
 
     @staticmethod
     def init():
@@ -51,7 +54,6 @@ class SpawnerService:
         print(f"Building image from path: {full_path}")
         print(f"Files in challenge directory:")
 
-
         if not (full_path / "Dockerfile").exists():
             raise SpawnerError(f"Dockerfile not found in {full_path}")
 
@@ -59,8 +61,8 @@ class SpawnerService:
         image_name = f"wxpawner-{challenge_path.lower().replace('/', '-')}"
 
         try:
-            SpawnerService._ensure_initialized()
-            SpawnerService.client.images.build(
+            client = SpawnerService._ensure_initialized()
+            client.images.build(
                 path=str(full_path),
                 tag=image_name,
                 rm=True  # Remove intermediate containers
@@ -68,26 +70,6 @@ class SpawnerService:
             return image_name
         except Exception as e:
             raise SpawnerError(f"Failed to build image: {str(e)}")
-
-    @staticmethod
-    def selectPort() -> int:
-        """Select an available port between 8000-9000"""
-        used_ports = set()
-        SpawnerService._ensure_initialized()
-        containers = SpawnerService.client.containers.list()
-        for container in containers:
-            ports = container.attrs['NetworkSettings']['Ports']
-            if ports:
-                for port_mappings in ports.values():
-                    if port_mappings:
-                        for mapping in port_mappings:
-                            used_ports.add(int(mapping['HostPort']))
-
-        for port in range(8000, 9000):
-            if port not in used_ports:
-                return port
-
-        raise SpawnerError("No available ports found")
 
     @staticmethod
     def create_container(team_name: str, image: str, flag: str) -> Container:
@@ -98,9 +80,9 @@ class SpawnerService:
             # Get two available ports - one for container, one for host
             container_port = 5000
 
-            SpawnerService._ensure_initialized()
+            client = SpawnerService._ensure_initialized()
 
-            docker_container = SpawnerService.client.containers.run(
+            docker_container = client.containers.run(
                 image=image_name,
                 name=container_name,
                 detach=True,
@@ -140,3 +122,96 @@ class SpawnerService:
             except:
                 pass
             raise SpawnerError(f"Failed to create container: {str(e)}")
+        
+    @staticmethod
+    def get_containers():
+        """Get all active containers and match them with database records.
+        
+        Returns:
+            list: List of Container objects that exist both in Docker and database
+            
+        Raises:
+            SpawnerError: If Docker client fails or database operation fails
+        """
+        try:
+            client = SpawnerService._ensure_initialized()
+            
+            # Get all containers from Docker
+            docker_containers = {
+                container.name: container 
+                for container in client.containers.list(all=True)
+            }
+            
+            # Get containers from database and match with Docker
+            with SessionLocal() as db:
+                db_containers = db.query(Container).all()
+                active_containers = []
+                
+                for db_container in db_containers:
+                    docker_container = docker_containers.get(db_container.container_name)
+                    if docker_container:
+                        # Update container status based on Docker state
+                        docker_status = docker_container.status
+                        new_status = None
+                        if docker_status == 'running':
+                            new_status = ContainerStatus.RUNNING.value
+                        elif docker_status == 'exited':
+                            new_status = ContainerStatus.STOPPED.value
+                            
+                        if new_status:
+                            stmt = update(Container)\
+                                .where(Container.container_name == db_container.container_name)\
+                                .values(status=new_status)
+                            db.execute(stmt)
+                            db.refresh(db_container)
+                        active_containers.append(db_container)
+                
+                # Commit any status updates
+                db.commit()
+                return active_containers
+                
+        except APIError as e:
+            raise SpawnerError(f"Docker API error: {str(e)}")
+        except Exception as e:
+            raise SpawnerError(f"Failed to get containers: {str(e)}")
+            
+    @staticmethod
+    def stop_container(container_name: str):
+        """Stop a running container and update its status in database
+        
+        Args:
+            container_name: Name of the container to stop
+            
+        Raises:
+            SpawnerError: If container not found or stop operation fails
+        """
+        try:
+            client = SpawnerService._ensure_initialized()
+            
+            # Get container
+            container = client.containers.get(container_name)
+            
+            # Stop container with 10 second timeout
+            container.stop(timeout=10)
+            
+            # Update container status in database
+            with SessionLocal() as db:
+                # Use SQLAlchemy update to change the status
+                result = db.execute(
+                    update(Container)
+                    .where(Container.container_name == container_name)
+                    .values(status=ContainerStatus.STOPPED.value)
+                )
+                
+                if result.rowcount > 0:
+                    db.commit()
+                    return {"status": "success", "message": f"Container {container_name} stopped"}
+                else:
+                    raise SpawnerError(f"Container {container_name} not found in database")
+                    
+        except NotFound:
+            raise SpawnerError(f"Container {container_name} not found in Docker")
+        except APIError as e:
+            raise SpawnerError(f"Docker API error: {str(e)}")
+        except Exception as e:
+            raise SpawnerError(f"Failed to stop container: {str(e)}")

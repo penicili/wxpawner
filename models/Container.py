@@ -36,7 +36,7 @@ class Container(Base):
             "id": self.id,
             "container_name": self.container_name,
             "image_name": self.image_name,
-            "status": self.status.value if self.status else None,
+            "status": self.status.value,
             "team_name": self.team_name,
             "port": self.port,
             "created_at": str(self.created_at)
